@@ -331,3 +331,47 @@ async fn test_search_with_limit_pagination() {
     assert_eq!(torrents.len(), 1);
     assert!(torrents[0]["name"].as_str().unwrap().contains("Ben 10"));
 }
+
+/// Agents often send every optional argument with an empty default. To qBittorrent an empty
+/// `category`/`tag` means "uncategorized/untagged only", and `limit: 0` truncated to nothing,
+/// so a name search found nothing.
+#[tokio::test]
+async fn test_search_ignores_empty_optional_args() {
+    use wiremock::matchers::{method, path, query_param_is_missing};
+    let mock = wiremock::MockServer::start().await;
+    wiremock::Mock::given(method("GET"))
+        .and(path("/api/v2/torrents/info"))
+        .and(query_param_is_missing("category"))
+        .and(query_param_is_missing("tag"))
+        .and(query_param_is_missing("filter"))
+        .and(query_param_is_missing("sort"))
+        .respond_with(wiremock::ResponseTemplate::new(200).set_body_json(json!([{
+            "hash": "0123456789abcdef0123456789abcdef01234567",
+            "name": "The.Lord.of.the.Rings.The.Fellowship.of.the.Ring.2001.EXTENDED.2160p",
+            "size": 1, "progress": 0.1, "dlspeed": 1, "upspeed": 0, "priority": 1,
+            "num_seeds": 1, "num_leechs": 0, "num_incomplete": 0, "num_complete": 1,
+            "ratio": 0.0, "eta": 60, "state": "downloading", "added_on": 1, "completion_on": 0,
+            "seq_dl": false, "f_l_piece_prio": false, "category": "movies", "tags": "",
+            "super_seeding": false, "force_start": false
+        }])))
+        .mount(&mock)
+        .await;
+    let mut clients = HashMap::new();
+    clients.insert(
+        "default".to_string(),
+        QBitClient::new_no_auth(mock.uri(), false),
+    );
+    let server = McpServer::new(clients, false);
+
+    let result = server
+        .call_tool(
+            "list_torrents",
+            &json!({ "search": "Rings", "category": "", "tag": "", "filter": "", "sort": "",
+                     "limit": 0, "offset": 0, "fields": ["name"] }),
+        )
+        .await
+        .expect("list_torrents failed");
+    let text = result["content"][0]["text"].as_str().unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(text).expect("valid JSON");
+    assert_eq!(parsed["total"], 1, "{text}");
+}
