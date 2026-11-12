@@ -1207,14 +1207,25 @@ impl McpServer {
     }
 
     async fn handle_list_torrents(&self, client: &QBitClient, args: &Value) -> Result<Value> {
-        let filter = args.get("filter").and_then(|v| v.as_str());
-        let category = args.get("category").and_then(|v| v.as_str());
-        let tag = args.get("tag").and_then(|v| v.as_str());
-        let sort = args.get("sort").and_then(|v| v.as_str());
+        // Agents often send every optional argument with an empty default. To qBittorrent an empty
+        // category/tag means "uncategorized/untagged only" and limit 0 returns nothing, so treat
+        // "" and limit <= 0 as "not given".
+        let opt = |k: &str| {
+            args.get(k)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+        };
+        let filter = opt("filter");
+        let category = opt("category");
+        let tag = opt("tag");
+        let sort = opt("sort");
         let reverse = args.get("reverse").and_then(|v| v.as_bool());
-        let limit = args.get("limit").and_then(|v| v.as_i64());
+        let limit = args
+            .get("limit")
+            .and_then(|v| v.as_i64())
+            .filter(|&l| l > 0);
         let offset = args.get("offset").and_then(|v| v.as_i64());
-        let search = args.get("search").and_then(|v| v.as_str());
+        let search = opt("search");
         let summary = args
             .get("summary")
             .and_then(|v| v.as_bool())
