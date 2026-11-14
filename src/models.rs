@@ -182,13 +182,19 @@ pub struct RssRule {
     pub use_regex: bool,
     #[serde(default)]
     pub episode_filter: String,
-    #[serde(default)]
+    // qBittorrent's key is "smartFilter", not the camelCase of this field name
+    #[serde(default, rename = "smartFilter")]
     pub smart_episode_filter: bool,
-    #[serde(default)]
+    #[serde(default, rename = "assignedCategory")]
     pub assign_category: String,
     pub add_paused: Option<bool>,
     #[serde(default)]
     pub save_path: String,
+    #[serde(default)]
+    pub affected_feeds: Vec<String>,
+    // Keeps keys not modelled above (ignoreDays, lastMatch, torrentParams, ...) so a read-then-write round trip loses nothing
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
