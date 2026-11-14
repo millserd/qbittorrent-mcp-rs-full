@@ -37,13 +37,15 @@ async fn test_rss_operations() -> Result<()> {
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "test_rule": {
                 "enabled": true,
-                "must_contain": "linux",
-                "must_not_contain": "windows",
-                "use_regex": false,
-                "episode_filter": "",
-                "smart_episode_filter": false,
-                "assign_category": "ISO",
-                "save_path": "/downloads"
+                "mustContain": "linux",
+                "mustNotContain": "windows",
+                "useRegex": false,
+                "episodeFilter": "",
+                "smartFilter": true,
+                "assignedCategory": "ISO",
+                "savePath": "/downloads",
+                "affectedFeeds": ["http://example.com/rss"],
+                "ignoreDays": 3
             }
         })))
         .mount(&mock_server)
@@ -58,6 +60,19 @@ async fn test_rss_operations() -> Result<()> {
     client.set_rss_rule("test_rule", "{}").await?;
     let rules = client.get_all_rss_rules().await?;
     assert!(rules.contains_key("test_rule"));
+    assert!(rules["test_rule"].smart_episode_filter);
+    assert_eq!(rules["test_rule"].must_contain, "linux");
+    assert_eq!(rules["test_rule"].assign_category, "ISO");
+    assert_eq!(
+        rules["test_rule"].affected_feeds,
+        vec!["http://example.com/rss"]
+    );
+    // round trip keeps qBittorrent's key names and unmodelled keys
+    let out = serde_json::to_value(&rules["test_rule"])?;
+    assert_eq!(out["smartFilter"], true);
+    assert_eq!(out["assignedCategory"], "ISO");
+    assert_eq!(out["affectedFeeds"][0], "http://example.com/rss");
+    assert_eq!(out["ignoreDays"], 3);
 
     Ok(())
 }
