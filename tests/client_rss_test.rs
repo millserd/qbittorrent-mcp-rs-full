@@ -63,7 +63,10 @@ async fn test_rss_operations() -> Result<()> {
     assert!(rules["test_rule"].smart_episode_filter);
     assert_eq!(rules["test_rule"].must_contain, "linux");
     assert_eq!(rules["test_rule"].assign_category, "ISO");
-    assert_eq!(rules["test_rule"].affected_feeds, vec!["http://example.com/rss"]);
+    assert_eq!(
+        rules["test_rule"].affected_feeds,
+        vec!["http://example.com/rss"]
+    );
     // round trip keeps qBittorrent's key names and unmodelled keys
     let out = serde_json::to_value(&rules["test_rule"])?;
     assert_eq!(out["smartFilter"], true);
